@@ -3,6 +3,8 @@ const {
     acceptRideRequest,
     updateRideSharing,
     updateRideStatus,
+    getPassengerRideHistory,
+    getDriverRideHistory,
  } = require("../services/rideService");
 
 const createRequest = async (req, res) => {
@@ -139,6 +141,44 @@ const updateStatus = async (req, res) => {
 
 
 
+const passengerHistory = async (req, res) => {
+    try {
+        const rides = await getPassengerRideHistory(
+            req.user.userId
+        );
+
+        res.json({
+            success: true,
+            rides
+        });
+    } catch (error) {
+        res.status(400).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+const driverHistory = async (req, res) => {
+    try {
+        const rides = await getDriverRideHistory(
+            req.user.userId
+        );
+
+        res.json({
+            success: true,
+            rides
+        });
+    } catch (error) {
+        res.status(400).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+
+
 
 
 module.exports = {
@@ -146,5 +186,7 @@ module.exports = {
     acceptRequest, 
     updateSharing,
     updateStatus,
+    passengerHistory,
+    driverHistory,
 
 };

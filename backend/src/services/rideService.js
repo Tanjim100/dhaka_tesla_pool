@@ -446,6 +446,101 @@ const updateRideStatus = async ({
 };
 
 
+const getPassengerRideHistory = async (userId) => {
+    const passenger = await prisma.passenger.findUnique({
+        where: { userId }
+    });
+
+    if (!passenger) {
+        throw new Error("Passenger profile not found");
+    }
+
+    return await prisma.ridePassenger.findMany({
+        where: {
+            passengerId: passenger.passengerId
+        },
+        orderBy: {
+            joinedAt: "desc"
+        },
+        include: {
+            ride: {
+                include: {
+                    driver: {
+                        include: {
+                            user: {
+                                select: {
+                                    userId: true,
+                                    name: true,
+                                    phone: true
+                                }
+                            }
+                        }
+                    },
+                    vehicle: true
+                }
+            },
+            pickupNode: true,
+            destinationNode: true,
+            fare: {
+                include: {
+                    payment: true
+                }
+            }
+        }
+    });
+};
+
+const getDriverRideHistory = async (userId) => {
+    const driver = await prisma.driver.findUnique({
+        where: { userId }
+    });
+
+    if (!driver) {
+        throw new Error("Driver profile not found");
+    }
+
+    return await prisma.ride.findMany({
+        where: {
+            driverId: driver.driverId
+        },
+        orderBy: {
+            createdAt: "desc"
+        },
+        include: {
+            vehicle: true,
+            request: {
+                include: {
+                    pickupNode: true,
+                    destinationNode: true
+                }
+            },
+            passengers: {
+                include: {
+                    passenger: {
+                        include: {
+                            user: {
+                                select: {
+                                    userId: true,
+                                    name: true,
+                                    phone: true
+                                }
+                            }
+                        }
+                    },
+                    pickupNode: true,
+                    destinationNode: true,
+                    fare: {
+                        include: {
+                            payment: true
+                        }
+                    }
+                }
+            }
+        }
+    });
+};
+
+
 
 
 
@@ -454,4 +549,6 @@ module.exports = {
     acceptRideRequest,
     updateRideSharing,
     updateRideStatus,
+    getPassengerRideHistory,
+    getDriverRideHistory,
 };

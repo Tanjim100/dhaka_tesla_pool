@@ -14,6 +14,7 @@ router.post(
     "/wallet/top-up",
     authenticate,
     authorizeRoles("PASSENGER"),
+    validateRequired(["amountPaisa"]),
     topUp
 );
 
