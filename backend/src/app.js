@@ -3,6 +3,14 @@ const cors = require("cors");
 
 const prisma = require("./config/database");
 
+const authRoutes = require("./routes/authRoutes");
+const passengerRoutes = require("./routes/passengerRoutes");
+const driverRoutes = require("./routes/driverRoutes");
+const rideRoutes = require("./routes/rideRoutes");
+const shareRoutes = require("./routes/shareRoutes");
+const fareRoutes = require("./routes/fareRoutes");
+const paymentRoutes = require("./routes/paymentRoutes");
+
 const app = express();
 
 app.use(cors());
@@ -33,6 +41,16 @@ app.get("/api/health", async (req, res) => {
         });
     }
 });
+
+
+
+app.use("/api/auth", authRoutes);
+app.use("/api/passengers", passengerRoutes);
+app.use("/api/drivers", driverRoutes);
+app.use("/api/rides", rideRoutes);
+app.use("/api/shares", shareRoutes);
+app.use("/api/fares", fareRoutes);
+app.use("/api/payments", paymentRoutes);
 
 
 module.exports = app;
