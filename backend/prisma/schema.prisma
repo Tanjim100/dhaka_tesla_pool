@@ -138,22 +138,66 @@ model Vehicle {
 }
 
 // =========================
+// GRAPH NODE
+// =========================
+
+model GraphNode {
+  nodeId    Int      @id
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  outgoingEdges GraphEdge[] @relation("FromNode")
+  incomingEdges GraphEdge[] @relation("ToNode")
+
+  pickupRequests      RideRequest[] @relation("PickupNode")
+  destinationRequests RideRequest[] @relation("DestinationNode")
+
+  sharePickupRequests      ShareRequest[] @relation("SharePickupNode")
+  shareDestinationRequests ShareRequest[] @relation("ShareDestinationNode")
+
+  passengerPickupRides      RidePassenger[] @relation("PassengerPickupNode")
+  passengerDestinationRides RidePassenger[] @relation("PassengerDestinationNode")
+
+  rideRouteNodes RideRouteNode[]
+}
+
+// =========================
+// GRAPH EDGE
+// =========================
+
+model GraphEdge {
+  edgeId     Int @id @default(autoincrement())
+  fromNodeId Int
+  toNodeId   Int
+  farePaisa  Int
+
+  fromNode GraphNode @relation("FromNode", fields: [fromNodeId], references: [nodeId])
+  toNode   GraphNode @relation("ToNode", fields: [toNodeId], references: [nodeId])
+
+  @@unique([fromNodeId, toNodeId])
+}
+
+// =========================
 // RIDE REQUEST
 // =========================
 
 model RideRequest {
-  requestId      Int               @id @default(autoincrement())
-  passengerId    Int
-  pickupLocation String
-  destination    String
-  requestedSeats Int
-  estimatedFare  Int
-  requestStatus  RideRequestStatus @default(REQUESTED)
-  requestedAt    DateTime          @default(now())
-  cancelledAt    DateTime?
+  requestId         Int               @id @default(autoincrement())
+  passengerId       Int
+  pickupNodeId      Int
+  destinationNodeId Int
+  requestedSeats    Int
+  estimatedFare     Int
+  requestStatus     RideRequestStatus @default(REQUESTED)
+  requestedAt       DateTime          @default(now())
+  cancelledAt       DateTime?
 
   passenger Passenger @relation(fields: [passengerId], references: [passengerId])
-  ride      Ride?
+
+  pickupNode      GraphNode @relation("PickupNode", fields: [pickupNodeId], references: [nodeId])
+  destinationNode GraphNode @relation("DestinationNode", fields: [destinationNodeId], references: [nodeId])
+
+  ride Ride?
 }
 
 // =========================
@@ -167,11 +211,15 @@ model Ride {
   driverId            Int
   vehicleId           Int
   rideStatus          RideStatus @default(MATCHED)
-  isShared            Boolean    @default(false)
-  totalFarePaisa      Int
-  createdAt           DateTime   @default(now())
-  startedAt           DateTime?
-  completedAt         DateTime?
+
+  isShared       Boolean @default(false)
+  shareEnabled   Boolean @default(false)
+  shareableSeats Int     @default(0)
+
+  totalFarePaisa Int
+  createdAt      DateTime  @default(now())
+  startedAt      DateTime?
+  completedAt    DateTime?
 
   request           RideRequest @relation(fields: [requestId], references: [requestId])
   originalPassenger Passenger   @relation("OriginalPassenger", fields: [originalPassengerId], references: [passengerId])
@@ -180,7 +228,25 @@ model Ride {
 
   passengers    RidePassenger[]
   shareRequests ShareRequest[]
+  routeNodes    RideRouteNode[]
   statusHistory RideStatusHistory[]
+}
+
+// =========================
+// RIDE ROUTE NODE
+// =========================
+
+model RideRouteNode {
+  rideRouteNodeId Int @id @default(autoincrement())
+  rideId          Int
+  nodeId          Int
+  sequence        Int
+
+  ride Ride      @relation(fields: [rideId], references: [rideId])
+  node GraphNode @relation(fields: [nodeId], references: [nodeId])
+
+  @@unique([rideId, sequence])
+  @@unique([rideId, nodeId])
 }
 
 // =========================
@@ -191,8 +257,8 @@ model ShareRequest {
   shareRequestId        Int                @id @default(autoincrement())
   rideId                Int
   requestingPassengerId Int
-  pickupLocation        String
-  destination           String
+  pickupNodeId          Int
+  destinationNodeId     Int
   requestedSeats        Int
   requestStatus         ShareRequestStatus @default(PENDING)
   requestedAt           DateTime           @default(now())
@@ -200,6 +266,9 @@ model ShareRequest {
 
   ride                Ride      @relation(fields: [rideId], references: [rideId])
   requestingPassenger Passenger @relation(fields: [requestingPassengerId], references: [passengerId])
+
+  pickupNode      GraphNode @relation("SharePickupNode", fields: [pickupNodeId], references: [nodeId])
+  destinationNode GraphNode @relation("ShareDestinationNode", fields: [destinationNodeId], references: [nodeId])
 
   ridePassenger RidePassenger?
 }
@@ -209,18 +278,21 @@ model ShareRequest {
 // =========================
 
 model RidePassenger {
-  ridePassengerId Int             @id @default(autoincrement())
-  rideId          Int
-  passengerId     Int
-  pickupLocation  String
-  destination     String
-  requestedSeats  Int
-  passengerStatus PassengerStatus @default(CONFIRMED)
-  joinedAt        DateTime        @default(now())
-  leftAt          DateTime?
+  ridePassengerId   Int             @id @default(autoincrement())
+  rideId            Int
+  passengerId       Int
+  pickupNodeId      Int
+  destinationNodeId Int
+  requestedSeats    Int
+  passengerStatus   PassengerStatus @default(CONFIRMED)
+  joinedAt          DateTime        @default(now())
+  leftAt            DateTime?
 
   ride      Ride      @relation(fields: [rideId], references: [rideId])
   passenger Passenger @relation(fields: [passengerId], references: [passengerId])
+
+  pickupNode      GraphNode @relation("PassengerPickupNode", fields: [pickupNodeId], references: [nodeId])
+  destinationNode GraphNode @relation("PassengerDestinationNode", fields: [destinationNodeId], references: [nodeId])
 
   fare           Fare?
   shareRequest   ShareRequest? @relation(fields: [shareRequestId], references: [shareRequestId])
@@ -238,7 +310,6 @@ model Fare {
   ridePassengerId  Int        @unique
   baseFare         Int
   distanceCharge   Int
-  poolDiscount     Int        @default(0)
   totalAmountPaisa Int
   currency         String     @default("BDT")
   fareStatus       FareStatus @default(ESTIMATED)

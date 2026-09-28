@@ -10,6 +10,7 @@ const rideRoutes = require("./routes/rideRoutes");
 const shareRoutes = require("./routes/shareRoutes");
 const fareRoutes = require("./routes/fareRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
+const graphRoutes = require("./routes/graphRoutes");
 
 const app = express();
 
@@ -51,6 +52,7 @@ app.use("/api/rides", rideRoutes);
 app.use("/api/shares", shareRoutes);
 app.use("/api/fares", fareRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/graph", graphRoutes);
 
 
 module.exports = app;
