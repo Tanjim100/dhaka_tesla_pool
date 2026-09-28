@@ -1,0 +1,284 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =========================
+// ENUMS
+// =========================
+
+enum UserRole {
+  PASSENGER
+  DRIVER
+}
+
+enum VehicleStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum RideRequestStatus {
+  REQUESTED
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+enum RideStatus {
+  MATCHED
+  DRIVER_ARRIVED
+  STARTED
+  COMPLETED
+  CANCELLED
+}
+
+enum ShareRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+enum PassengerStatus {
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum FareStatus {
+  ESTIMATED
+  FINAL
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  TESLA_PAY
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+// =========================
+// USER
+// =========================
+
+model User {
+  userId       Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  passwordHash String
+  phone        String?
+  role         UserRole
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  passenger Passenger?
+  driver    Driver?
+}
+
+// =========================
+// PASSENGER
+// =========================
+
+model Passenger {
+  passengerId Int      @id @default(autoincrement())
+  userId      Int      @unique
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [userId])
+
+  rideRequests  RideRequest[]
+  rides         RidePassenger[]
+  shareRequests ShareRequest[]
+  originalRides Ride[]          @relation("OriginalPassenger")
+}
+
+// =========================
+// DRIVER
+// =========================
+
+model Driver {
+  driverId  Int      @id @default(autoincrement())
+  userId    Int      @unique
+  isOnline  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [userId])
+
+  vehicle       Vehicle?
+  rides         Ride[]
+  statusChanges RideStatusHistory[]
+}
+
+// =========================
+// VEHICLE
+// =========================
+
+model Vehicle {
+  vehicleId     Int           @id @default(autoincrement())
+  driverId      Int           @unique
+  vehicleName   String
+  licenseNumber String        @unique
+  totalSeats    Int
+  vehicleStatus VehicleStatus @default(ACTIVE)
+  createdAt     DateTime      @default(now())
+
+  driver Driver @relation(fields: [driverId], references: [driverId])
+  rides  Ride[]
+}
+
+// =========================
+// RIDE REQUEST
+// =========================
+
+model RideRequest {
+  requestId      Int               @id @default(autoincrement())
+  passengerId    Int
+  pickupLocation String
+  destination    String
+  requestedSeats Int
+  estimatedFare  Int
+  requestStatus  RideRequestStatus @default(REQUESTED)
+  requestedAt    DateTime          @default(now())
+  cancelledAt    DateTime?
+
+  passenger Passenger @relation(fields: [passengerId], references: [passengerId])
+  ride      Ride?
+}
+
+// =========================
+// RIDE
+// =========================
+
+model Ride {
+  rideId              Int        @id @default(autoincrement())
+  requestId           Int        @unique
+  originalPassengerId Int
+  driverId            Int
+  vehicleId           Int
+  rideStatus          RideStatus @default(MATCHED)
+  isShared            Boolean    @default(false)
+  totalFarePaisa      Int
+  createdAt           DateTime   @default(now())
+  startedAt           DateTime?
+  completedAt         DateTime?
+
+  request           RideRequest @relation(fields: [requestId], references: [requestId])
+  originalPassenger Passenger   @relation("OriginalPassenger", fields: [originalPassengerId], references: [passengerId])
+  driver            Driver      @relation(fields: [driverId], references: [driverId])
+  vehicle           Vehicle     @relation(fields: [vehicleId], references: [vehicleId])
+
+  passengers    RidePassenger[]
+  shareRequests ShareRequest[]
+  statusHistory RideStatusHistory[]
+}
+
+// =========================
+// SHARE REQUEST
+// =========================
+
+model ShareRequest {
+  shareRequestId        Int                @id @default(autoincrement())
+  rideId                Int
+  requestingPassengerId Int
+  pickupLocation        String
+  destination           String
+  requestedSeats        Int
+  requestStatus         ShareRequestStatus @default(PENDING)
+  requestedAt           DateTime           @default(now())
+  respondedAt           DateTime?
+
+  ride                Ride      @relation(fields: [rideId], references: [rideId])
+  requestingPassenger Passenger @relation(fields: [requestingPassengerId], references: [passengerId])
+
+  ridePassenger RidePassenger?
+}
+
+// =========================
+// RIDE PASSENGER
+// =========================
+
+model RidePassenger {
+  ridePassengerId Int             @id @default(autoincrement())
+  rideId          Int
+  passengerId     Int
+  pickupLocation  String
+  destination     String
+  requestedSeats  Int
+  passengerStatus PassengerStatus @default(CONFIRMED)
+  joinedAt        DateTime        @default(now())
+  leftAt          DateTime?
+
+  ride      Ride      @relation(fields: [rideId], references: [rideId])
+  passenger Passenger @relation(fields: [passengerId], references: [passengerId])
+
+  fare           Fare?
+  shareRequest   ShareRequest? @relation(fields: [shareRequestId], references: [shareRequestId])
+  shareRequestId Int?          @unique
+
+  @@unique([rideId, passengerId])
+}
+
+// =========================
+// FARE
+// =========================
+
+model Fare {
+  fareId           Int        @id @default(autoincrement())
+  ridePassengerId  Int        @unique
+  baseFare         Int
+  distanceCharge   Int
+  poolDiscount     Int        @default(0)
+  totalAmountPaisa Int
+  currency         String     @default("BDT")
+  fareStatus       FareStatus @default(ESTIMATED)
+  calculatedAt     DateTime   @default(now())
+
+  ridePassenger RidePassenger @relation(fields: [ridePassengerId], references: [ridePassengerId])
+
+  payment Payment?
+}
+
+// =========================
+// PAYMENT
+// =========================
+
+model Payment {
+  paymentId            Int           @id @default(autoincrement())
+  fareId               Int           @unique
+  paymentMethod        PaymentMethod
+  paymentStatus        PaymentStatus @default(PENDING)
+  amountPaisa          Int
+  transactionReference String?
+  paidAt               DateTime?
+  createdAt            DateTime      @default(now())
+
+  fare Fare @relation(fields: [fareId], references: [fareId])
+}
+
+// =========================
+// RIDE STATUS HISTORY
+// =========================
+
+model RideStatusHistory {
+  historyId  Int         @id @default(autoincrement())
+  rideId     Int
+  fromStatus RideStatus?
+  toStatus   RideStatus
+  changedBy  Int
+  changedAt  DateTime    @default(now())
+  note       String?
+
+  ride   Ride   @relation(fields: [rideId], references: [rideId])
+  driver Driver @relation(fields: [changedBy], references: [driverId])
+}
