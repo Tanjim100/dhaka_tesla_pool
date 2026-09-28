@@ -149,6 +149,56 @@ const calculateRideFares = async (rideId, tx = prisma) => {
     return fares;
 };
 
+const finalizeRideFares = async (rideId) => {
+    const ride = await prisma.ride.findUnique({
+        where: { rideId },
+        include: {
+            passengers: {
+                include: {
+                    fare: true
+                }
+            }
+        }
+    });
+
+    if (!ride) {
+        throw new Error("Ride not found");
+    }
+
+    if (ride.rideStatus !== "COMPLETED") {
+        throw new Error("Ride must be completed first");
+    }
+
+    const fares = [];
+
+    for (const passenger of ride.passengers) {
+        if (!passenger.fare) {
+            throw new Error(
+                `Fare not calculated for passenger ${passenger.passengerId}`
+            );
+        }
+
+        const fare = await prisma.fare.update({
+            where: {
+                fareId: passenger.fare.fareId
+            },
+            data: {
+                fareStatus: "FINAL"
+            }
+        });
+
+        fares.push(fare);
+    }
+
+    return fares;
+};
+
+
+
+
+
+
 module.exports = {
-    calculateRideFares
+    calculateRideFares,
+    finalizeRideFares,
 };
