@@ -1,5 +1,9 @@
 const prisma = require("../config/database");
 
+const {
+    calculateRideFares
+} = require("./fareService")
+
 const createShareRequest = async ({
     userId,
     rideId,
@@ -285,6 +289,7 @@ const respondToShareRequest = async ({
                 }
             });
 
+
         const updatedRide = await tx.ride.update({
             where: { rideId: ride.rideId },
             data: {
@@ -295,6 +300,12 @@ const respondToShareRequest = async ({
                 }
             }
         });
+
+        await calculateRideFares(
+            ride.rideId,
+            tx
+        );
+
 
         return {
             shareRequest: updatedRequest,

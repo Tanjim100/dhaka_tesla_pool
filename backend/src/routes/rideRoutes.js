@@ -7,6 +7,7 @@ const {
     createRequest,
     acceptRequest,
     updateSharing,
+    updateStatus,
 } = require("../controllers/rideController");
 
 const router = express.Router();
@@ -31,5 +32,13 @@ router.patch(
     authorizeRoles("PASSENGER"),
     updateSharing
 );
+
+router.patch(
+    "/:rideId/status",
+    authenticate,
+    authorizeRoles("DRIVER"),
+    updateStatus
+);
+
 
 module.exports = router;

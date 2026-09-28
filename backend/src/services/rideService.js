@@ -375,8 +375,83 @@ const updateRideSharing = async ({
 
 
 
+
+const updateRideStatus = async ({
+    rideId,
+    userId,
+    newStatus
+}) => {
+    const driver = await prisma.driver.findUnique({
+        where: { userId }
+    });
+
+    if (!driver) {
+        throw new Error("Driver profile not found");
+    }
+
+    const ride = await prisma.ride.findUnique({
+        where: { rideId }
+    });
+
+    if (!ride) {
+        throw new Error("Ride not found");
+    }
+
+    if (ride.driverId !== driver.driverId) {
+        throw new Error("You are not the driver of this ride");
+    }
+
+    const allowedTransitions = {
+        MATCHED: ["DRIVER_ARRIVED"],
+        DRIVER_ARRIVED: ["STARTED"],
+        STARTED: ["COMPLETED"]
+    };
+
+    if (
+        !allowedTransitions[ride.rideStatus] ||
+        !allowedTransitions[ride.rideStatus].includes(newStatus)
+    ) {
+        throw new Error(
+            `Invalid status transition: ${ride.rideStatus} -> ${newStatus}`
+        );
+    }
+
+    const updatedRide = await prisma.$transaction(async (tx) => {
+        const updated = await tx.ride.update({
+            where: { rideId },
+            data: {
+                rideStatus: newStatus,
+                ...(newStatus === "STARTED"
+                    ? { startedAt: new Date() }
+                    : {}),
+                ...(newStatus === "COMPLETED"
+                    ? { completedAt: new Date() }
+                    : {})
+            }
+        });
+
+        await tx.rideStatusHistory.create({
+            data: {
+                rideId,
+                fromStatus: ride.rideStatus,
+                toStatus: newStatus,
+                changedBy: driver.driverId
+            }
+        });
+
+        return updated;
+    });
+
+    return updatedRide;
+};
+
+
+
+
+
 module.exports = {
     createRideRequest,
     acceptRideRequest,
     updateRideSharing,
+    updateRideStatus,
 };

@@ -1,7 +1,8 @@
 const { 
     createRideRequest,
     acceptRideRequest,
-    updateRideSharing
+    updateRideSharing,
+    updateRideStatus,
  } = require("../services/rideService");
 
 const createRequest = async (req, res) => {
@@ -110,10 +111,40 @@ const updateSharing = async (req, res) => {
 
 
 
+const updateStatus = async (req, res) => {
+    try {
+        const rideId = Number(req.params.rideId);
+        const { status } = req.body;
+
+        const ride = await updateRideStatus({
+            rideId,
+            userId: req.user.userId,
+            newStatus: status
+        });
+
+        res.json({
+            success: true,
+            message: "Ride status updated successfully",
+            ride
+        });
+    } catch (error) {
+        console.error(error);
+
+        res.status(400).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+
+
 
 
 module.exports = {
     createRequest, 
     acceptRequest, 
     updateSharing,
+    updateStatus,
+
 };
